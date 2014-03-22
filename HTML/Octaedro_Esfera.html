@@ -1,0 +1,270 @@
+<html>
+  <head>
+    <meta charset="utf-8">
+    <script type="text/javascript" 
+	    src="../glMatrix-0.9.5.min.js">
+    </script>
+    <script type="text/javascript" 
+	    src="../jquery-2.1.0.min.js">
+    </script>
+	<script type="text/javascript" 
+	    src="../webgl-utils.js">
+    </script>
+	<script type="text/javascript" 
+	    src="../InitiShaders_tutorial2.js">
+    </script>
+	<script type="text/javascript" 
+	    src="../VertexCreatorOctahedron.js">
+    </script>
+	<script type="text/javascript">
+	// Iniciar o ambiente quando a página for 
+      // carregada
+	//var mMatrix1 = mat4.create();
+	//var mMatrix2 = mat4.create();
+	var mMatrix = mat4.create();
+	var vMatrix = mat4.create();
+	var pMatrix = mat4.create();
+
+	var ModelVertexPositionBuffer;
+	var ModelVertexColorBuffer;
+	
+	var LinesVertexPositionBuffer;
+	var LinesVertexColorBuffer; 
+	
+	var contadorCriacaoVertices = 0;
+	
+	var vertices = [];
+	//var theta1 = 0.0;
+	//var theta2 = 0.0;
+ 	var theta = 0.0;
+	//var thetaLoc;
+	
+      $(function()
+      {
+	iniciaWebGL();
+      });
+	  
+	  function iniciaWebGL()
+    {
+      var canvas = $('#canvas-webgl')[0];
+      iniciarGL(canvas); // Definir como um canvas 3D
+      iniciarShaders();  // Obter e processar os Shaders
+      iniciarBuffers();  // Enviar o triângulo e quadrado na GPU
+      iniciarAmbiente(); // Definir background e cor do objeto
+      desenharCena();    // Usar os itens anteriores e desenhar
+	  
+	  //window.setInterval(desenharCena, 20);
+	  //window.setInterval(CriaVertices, 3000);  //Chama a funcao de criar verttices
+	 
+    }
+	//function CriaVertices(){
+	//	if(contadorCriacaoVertices <= 5){
+	//		vertices = VertexCreatorOctahedron(vertices);
+	//		contadorCriacaoVertices++;
+	//	}
+	//}
+	
+	 function iniciarGL(canvas)
+    {
+      try
+      {
+	gl = canvas.getContext("webgl") || 
+	     canvas.getContext("experimental-webgl");
+	gl.viewportWidth = canvas.width;
+	gl.viewportHeight = canvas.height;
+      }
+      catch(e)
+      {
+	if(!gl)
+	  alert("Não pode inicializar WebGL, desculpe");
+      }
+    }
+	
+	function iniciarBuffers()
+	{
+		//Buffer of the Octahedron
+		ModelVertexPositionBuffer = gl.createBuffer();
+		gl.bindBuffer(gl.ARRAY_BUFFER, ModelVertexPositionBuffer);
+		vertices = [
+			// Frente Superior
+			-1.0, 0.0, 1.0,
+			1.0, 0.0, 1.0,
+			0.0, 1.414, 0.0,
+			// Frente Inferior
+			1.0, 0.0, 1.0,
+			-1.0, 0.0, 1.0,
+			0.0, -1.414, 0.0,	
+			// Direita superior
+			1.0, 0.0, 1.0,
+			1.0, 0.0, -1.0,
+			0.0, 1.414, 0.0,
+			//Direita inferior
+			1.0, 0.0, 1.0,
+			1.0, 0.0, -1.0,
+			0.0, -1.414, 0.0,
+			//Esquerda Superior
+			-1.0, 0.0, 1.0,
+			0.0, 1.414, 0.0,
+			-1.0, 0.0, -1.0,
+			// Esquerda inferior
+			-1.0, 0.0, -1.0,
+			-1.0, 0.0, 1.0,
+			0.0, -1.414, 0.0,
+			// Traseira superior
+			0.0, 1.414, 0.0,
+			-1.0, 0.0, -1.0,
+			1.0, 0.0, -1.0,
+			// Traseira inferior
+			1.0, 0.0, -1.0,
+			-1.0, 0.0, -1.0,
+			0.0, -1.414, 0.0		
+		];
+		//var text = document.getElementById('texto');
+		//text.innerHTML = "Vertices: " + vertices.toString();
+		
+		while (contadorCriacaoVertices < 0){
+			vertices = VertexCreatorOctahedron(vertices);
+			contadorCriacaoVertices++;
+		}
+		
+		//var text = document.getElementById('texto2');
+		//text.innerHTML = "Vertices subdivididos: " + vertices.toString();
+		
+		gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
+		ModelVertexPositionBuffer.itemSize = 3;
+		ModelVertexPositionBuffer.numItems = vertices.length/3;
+		//Buffer de cor das superficies
+		ModelVertexColorBuffer = gl.createBuffer();
+		gl.bindBuffer(gl.ARRAY_BUFFER, ModelVertexColorBuffer);
+		var cores = [0.804, 0.824, 0.8, 1.0];
+		var coresReplicadas = [];
+		for (var i=0; i< vertices.length/3; i++) {
+				coresReplicadas = coresReplicadas.concat(cores);
+		}
+		gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(coresReplicadas), gl.STATIC_DRAW);
+		ModelVertexColorBuffer.itemSize = 4;
+		ModelVertexColorBuffer.numItems = coresReplicadas.length/4;
+
+		//Buffer of the lines
+		LinesVertexPositionBuffer = gl.createBuffer();
+		gl.bindBuffer(gl.ARRAY_BUFFER, LinesVertexPositionBuffer);
+		gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
+		LinesVertexPositionBuffer.itemSize = 3;
+		LinesVertexPositionBuffer.numItems = vertices.length/3;
+		
+		//Buffer de cor das linhas
+		LinesVertexColorBuffer = gl.createBuffer();
+		gl.bindBuffer(gl.ARRAY_BUFFER, LinesVertexColorBuffer);
+		cores = [1.0, 0.604, 0.31, 1.0];
+		var coresLinhas = [];
+		for (var i=0; i< vertices.length/3; i++) {
+			coresLinhas = coresLinhas.concat(cores);
+		}
+		gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(coresLinhas), gl.STATIC_DRAW);
+		LinesVertexColorBuffer.itemSize = 4;
+		LinesVertexColorBuffer.numItems = coresLinhas.length/4;	
+	}
+	
+	function iniciarAmbiente()
+	{
+		gl.clearColor(0.0, 0.0, 0.0, 1.0);
+		gl.enable(gl.DEPTH_TEST);
+	}
+	
+	function desenharCena()
+	{
+		gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+		mat4.perspective(45, gl.viewportWidth / gl.viewportHeight, 0.1, 100.0, pMatrix);
+		mat4.identity(mMatrix);
+		//mat4.identity(mMatrix2);
+		mat4.identity(vMatrix);
+		
+		// Desenhando o primeiro Quadrado
+		theta += 0.01;
+		//Translate both movement matrices of the points
+		mat4.translate(mMatrix, [0.0, 0.0, -4.0]);
+		//mat4.translate(mMatrix2, [-1.5, 0.0, -7.0]);
+		
+		mat4.rotate(mMatrix, theta, [0.0, 1.0, 0.0]);
+		//mat4.scale(mMatrix, [2.0, 2.0, 2.0]);
+		gl.bindBuffer(gl.ARRAY_BUFFER, ModelVertexPositionBuffer);
+		gl.vertexAttribPointer(shaderProgram.vertexPositionAttribute, ModelVertexPositionBuffer.itemSize, gl.FLOAT, false, 0, 0);
+		gl.bindBuffer(gl.ARRAY_BUFFER, ModelVertexColorBuffer);
+		gl.vertexAttribPointer(shaderProgram.vertexColorAttribute, ModelVertexColorBuffer.itemSize, gl.FLOAT, false, 0, 0);
+		setMatrixUniforms();
+		gl.drawArrays(gl.TRIANGLES, 0, ModelVertexPositionBuffer.numItems);
+		
+		//Renderiza as linhas	
+		gl.bindBuffer(gl.ARRAY_BUFFER, LinesVertexPositionBuffer);
+		gl.vertexAttribPointer(shaderProgram.vertexPositionAttribute, LinesVertexPositionBuffer.itemSize, gl.FLOAT, false, 0, 0);
+		gl.bindBuffer(gl.ARRAY_BUFFER, LinesVertexColorBuffer);
+		gl.vertexAttribPointer(shaderProgram.vertexColorAttribute, LinesVertexColorBuffer.itemSize, gl.FLOAT, false, 0, 0);
+		setMatrixUniforms();
+		gl.drawArrays(gl.LINE_STRIP, 0, LinesVertexPositionBuffer.numItems);
+		
+		//var text = document.getElementById('texto');
+		//text.innerHTML = "Quantidade de numeros no array: " + (vertices.length).toString();
+		//var text = document.getElementById('texto2');
+		//text.innerHTML = "Quantidade de triangulos: " + (vertices.length/9).toString();
+		window.requestAnimFrame(desenharCena);
+		
+	}
+
+	function setMatrixUniforms(square)
+	{
+		gl.uniformMatrix4fv(shaderProgram.pMatrixUniform, 
+			false, pMatrix);
+		gl.uniformMatrix4fv(shaderProgram.vMatrixUniform, 
+			false, vMatrix);
+		//if(square == 1)
+			//gl.uniformMatrix4fv(shaderProgram.mMatrixUniform, 
+				//false, mMatrix1);
+		//else
+			//gl.uniformMatrix4fv(shaderProgram.mMatrixUniform, 
+				//false, mMatrix2);
+		gl.uniformMatrix4fv(shaderProgram.mMatrixUniform, 
+			false, mMatrix);
+	}
+	
+    </script>
+	<script id="shader-vs" type="x-shader/x-vertex">
+      attribute vec3 aVertexPosition;
+	  attribute vec4 aVertexColor;
+      
+      uniform mat4 uMMatrix;
+      uniform mat4 uVMatrix;
+      uniform mat4 uPMatrix;
+	
+	  varying vec4 vColor;
+	void main(void)
+    {
+		gl_Position = uPMatrix * uVMatrix * uMMatrix *
+		      vec4(aVertexPosition, 1.0);
+		vColor = aVertexColor;
+    }
+    </script>
+	
+	<script id="shader-fs" type="x-shader/x-fragment">
+		precision mediump float;
+		varying vec4 vColor;
+      
+		void main(void)
+		{
+			//gl_FragColor = vec4(1.0, 0.0, 0.0, 1.0);
+			gl_FragColor = vColor;
+		}
+
+    </script>
+  </head>
+  <body>
+    <canvas id="canvas-webgl" 
+	    width="500px" 
+	    height="500px" 
+	    style="border:none">
+    </canvas>
+	<br/>
+	<span id="texto">teste</span>
+	<br/>
+	<span id="texto2">teste2</span>
+  </body>
+<html>
